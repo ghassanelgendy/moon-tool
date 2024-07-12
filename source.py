@@ -1,4 +1,3 @@
-@ -1,354 +0,0 @@
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -315,7 +314,7 @@ More tools to be announced soon lw mamshetsh
             print("Make sure the file name is 'ghassan' :)")
             csv_file = 'ghassan.csv'
             hour = int(input("Enter the hour you want to filter by (0-23): "))
-            output_file = 'Prod youm elsa3a ' + str(hour) + ' yabasha.xlsx'
+            output_file = 'Prod elsa3a ' + str(hour) + ' yabasha.xlsx'
             automate_process(csv_file, hour, output_file)
             print("Done! The output file has been saved as:", output_file)
 
@@ -337,11 +336,11 @@ More tools to be announced soon lw mamshetsh
 
         elif choice == '4':
             print("For productivity, please make sure the file name is 'ghassan' and the hour is set to the hour you want to start from,"
-                  "\tfor example:"
-                  "\thour = 16 for productivity from 4PM - 5PM."
-                  "\thour = 3 for productivity from 3AM - 4AM.")
+                  "\n for example:"
+                  "\n 1. hour = 16 for productivity from 4PM - 5PM."
+                  "\n 2. hour = 3 for productivity from 3AM - 4AM.")
             print("For C-SAT, please make sure the file name is left as it is (starts with IVR) and is in the same folder as this file."
-                  "\tThe tool will automatically filter the data for the specified hour and generate the output file with name : CSAT date_time")
+                  "\nThe tool will automatically filter the data for the specified hour and generate the output file with name : CSAT date_time")
             print("If you need further assistance, please contact Ghassan.")
         elif choice == '5':
             print("Exiting the tool. Salam")
