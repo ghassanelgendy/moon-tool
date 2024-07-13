@@ -66,7 +66,8 @@ def process_and_export_to_excel(file_path, output_path):
     wb = Workbook()
     ws = wb.active
     ws.title = 'Pivot Table'
-    
+    fill = PatternFill(start_color='5FACC7', end_color='5FACC7', fill_type='solid')
+
     # Write DataFrame to Excel
     for r in dataframe_to_rows(pivot_table, index=False, header=True):
         ws.append(r)
@@ -190,10 +191,19 @@ def save_to_excel(df, pivot_table, output_file):
 
     # Reorder sheets so that Pivot Table sheet is the first one
     wb.move_sheet(ws_filtered, offset=1)  # Move Filtered Data sheet to the second position
-
+    
     # Save the workbook to a file
     wb.save(output_file)
 
+def automate_process(csv_file, hour, output_file):
+    df = read_csv_skip_rows(csv_file)
+    filtered_df = filter_by_hour(df, hour)
+    pivot_table = create_pivot_table(filtered_df)
+    save_to_excel(filtered_df, pivot_table, output_file)
+
+
+timestamp = datetime.now().strftime("%d_%H_%M")  # Get current timestamp
+output_filename = f"CSAT {timestamp}.xlsx"
 def automate_process(csv_file, hour, output_file):
     df = read_csv_skip_rows(csv_file)
     filtered_df = filter_by_hour(df, hour)
@@ -265,6 +275,17 @@ def process_and_export_to_excel(file_path, output_path):
         ws.append(r)
     
     # Apply formatting
+        # Apply background color to the first row and first column of the last row
+    fill = PatternFill(start_color='538DD5', end_color='538DD5', fill_type='solid')
+    
+    # Apply background color to the first row
+    for cell in ws[1]:
+        cell.fill = fill
+    
+    # Apply background color to the first column of the last row
+    for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row, min_col=1, max_col=1):
+        for cell in row:
+            cell.fill = fill
     for cell in ws["1:1"]:
         cell.font = Font(bold=True)
     
@@ -277,7 +298,6 @@ def process_and_export_to_excel(file_path, output_path):
     # Adjust the width of the 'Agent Name' column to fit the longest name
     max_length = max(len(str(cell.value)) for cell in ws['A'] if cell.value)
     ws.column_dimensions['A'].width = max_length + 2  # Adding a little extra space for padding
-
     # Apply gradient color scale to the CSAT_numeric column
     first_data_row = 2
     last_data_row = ws.max_row - 1  # Exclude the Grand Total row from conditional formatting
@@ -293,7 +313,6 @@ def process_and_export_to_excel(file_path, output_path):
     
     # Save the workbook
     wb.save(output_path)
-
 def generate_break_schedule(agent_names, start_time, break_schema):
     # Define the columns for the DataFrame
     if break_schema == '1':
@@ -385,10 +404,11 @@ def main():
 More tools to be announced soon lw mamshetsh
             ''')
         choice = input("Enter the number of the tool you want to use: ")
-        #choice = '2';
+        #choice = '3'
         if choice == '1':
             print("Make sure the file name is 'ghassan' :)")
             csv_file = 'ghassan.csv'
+            #hour =13
             hour = int(input("Enter the hour you want to filter by (0-23): "))
             output_file = 'Prod elsa3a ' + str(hour) + ' yabasha.xlsx'
             automate_process(csv_file, hour, output_file)
