@@ -3,7 +3,7 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import ColorScaleRule
-from datetime import datetime  # Added for filename timestamp
+from datetime import datetime, timedelta  # Added for filename timestamp
 import glob
 import os
 
@@ -294,6 +294,81 @@ def process_and_export_to_excel(file_path, output_path):
     # Save the workbook
     wb.save(output_path)
 
+def generate_break_schedule(agent_names, start_time, break_schema):
+    # Define the columns for the DataFrame
+    if break_schema == '1':
+        columns = ['Agent Name', 'Start Time', '15 Min Break', '30 Min Break', '15 Min Break', 'End Time']
+    elif break_schema == '2':
+        columns = ['Agent Name', 'Start Time', '30 Min Break', '30 Min Break', 'End Time']
+    else:
+        raise ValueError("Invalid break schema. Choose '1' for schema: 15-30-15 or '2' for schema : 30-30.")
+    
+    data = []
+    
+    start = datetime.strptime(start_time, '%I:%M %p')
+    end = start + timedelta(hours=9)
+    
+    # Initial break times for the first agent
+    break_time = start + timedelta(hours=2)
+
+    for i, agent_name in enumerate(agent_names):
+        if break_schema == '1':
+            first_break = break_time
+            second_break = first_break + timedelta(minutes=15) + timedelta(hours=2)
+            third_break = second_break + timedelta(minutes=30) + timedelta(hours=2)
+            break_time += timedelta(minutes=15)  # Next agent's first break is 15 mins later
+            row = [agent_name, start.strftime('%I:%M %p'), first_break.strftime('%I:%M %p'), 
+                   second_break.strftime('%I:%M %p'), third_break.strftime('%I:%M %p'), end.strftime('%I:%M %p')]
+        elif break_schema == '2':
+            first_break = break_time
+            second_break = first_break + timedelta(minutes=30) + timedelta(hours=3)
+            break_time += timedelta(minutes=30)  # Next agent's first break is 30 mins later
+            row = [agent_name, start.strftime('%I:%M %p'), first_break.strftime('%I:%M %p'), 
+                   second_break.strftime('%I:%M %p'), end.strftime('%I:%M %p')]
+        
+        data.append(row)
+    
+    df = pd.DataFrame(data, columns=columns)
+    return df
+def save_to_excel_break(df, filename):
+    wb = Workbook()
+    ws = wb.active
+    
+    # Apply styles for the header
+    header_font = Font(bold=True, color="000000")
+    header_fill = PatternFill(start_color="93c47d", end_color="93c47d", fill_type="solid")  # Green fill
+    black_border = Border(left=Side(style='thin', color='000000'),
+                          right=Side(style='thin', color='000000'),
+                          top=Side(style='thin', color='000000'),
+                          bottom=Side(style='thin', color='000000'))  # Black border
+                            # Apply alignment to center
+    centered_alignment = Alignment(horizontal='center', vertical='center')
+    
+    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=value)
+            if r_idx == 1:  # Apply styles only to the header row
+                cell.font = header_font
+                cell.fill = header_fill
+            cell.border = black_border
+            cell.alignment = centered_alignment
+    
+    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=value)
+            if r_idx == 1:  # Apply styles only to the header row
+                cell.font = header_font
+                cell.fill = header_fill
+            cell.border = black_border
+    
+    # Adjust column widths
+    for column_cells in ws.columns:
+        max_length = max(len(str(cell.value)) for cell in column_cells)
+        adjusted_width = max_length + 2
+        ws.column_dimensions[column_cells[0].column_letter].width = adjusted_width
+    
+    wb.save(filename)
+
 
 def main():
     while True:
@@ -305,6 +380,7 @@ def main():
 3) C-SAT overday
 4) Get help
 5) Exit
+6) Generate Break Schedule
 
 More tools to be announced soon lw mamshetsh
             ''')
@@ -345,6 +421,34 @@ More tools to be announced soon lw mamshetsh
         elif choice == '5':
             print("Exiting the tool. Salam")
             break
+        elif choice == '6':
+            shift_start_times = {
+                9: '09:00 AM',
+                7: '07:00 AM',
+                11: '11:00 AM',
+                10: '10:00 PM',
+                4: '04:00 PM',
+                1: '01:00 PM'
+            }
+
+            today = datetime.today()
+            shift_choice = int(input("Enter the shift start time: "))
+            start_time = shift_start_times.get(shift_choice)
+            filename = 'Breaks shift ' + str(shift_choice) +' '+ str(today.day) + '-' +str(today.month)+'.xlsx' 
+            if not start_time:
+                print("Invalid shift start time.")
+                return
+
+            # Get user input for agent names in one line, space-separated
+            agent_names = input("Enter the names of agents, space-separated: ").split()
+
+            # Get user input for break schema
+            break_schema = input("Enter the break schema \n\t1 = (15-30-15) \n\t2 = (30-30)\n=> ")
+
+            # Generate schedule and save to Excel
+            schedule_df = generate_break_schedule(agent_names, start_time, break_schema)
+            save_to_excel_break(schedule_df, filename)
+            print(f"Break schedule saved to {filename}")
         else:
             print("Invalid choice. Please enter a valid number.")
         
