@@ -4,10 +4,19 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import ColorScaleRule
 from datetime import datetime, timedelta  # Added for filename timestamp
+from openpyxl.utils import get_column_letter
 import glob
 import os
 
 
+def adjust_column_width(ws, col):
+    max_length = 0
+    column = get_column_letter(col)
+    for cell in ws[column]:
+        if cell.value:
+            max_length = max(max_length, len(str(cell.value)))
+    adjusted_width = max_length + 2  # Add some extra space
+    ws.column_dimensions[column].width = adjusted_width
 timestamp = datetime.now().strftime("%d_%H_%M")  # Get current timestamp
 output_filename = f"CSAT {timestamp}.xlsx"
 def process_and_export_to_excel(file_path, output_path):
@@ -82,10 +91,6 @@ def process_and_export_to_excel(file_path, output_path):
             cell.alignment = Alignment(horizontal='center')
 
 
-    # Adjust the width of the 'Agent Name' column to fit the longest name
-    max_length = max(len(str(cell.value)) for cell in ws['A'] if cell.value)
-    ws.column_dimensions['A'].width = max_length + 2  # Adding a little extra space for padding
-
     # Apply gradient color scale to the CSAT_numeric column
     first_data_row = 2
     last_data_row = ws.max_row - 1  # Exclude the Grand Total row from conditional formatting
@@ -95,10 +100,22 @@ def process_and_export_to_excel(file_path, output_path):
         end_type='num', end_value=100, end_color='00FF00'
     )
     ws.conditional_formatting.add(f"F{first_data_row}:F{last_data_row}", rule)
-    
+# Add '%' symbol to the end of each CSAT_numeric value
+    for row in range(first_data_row, last_data_row + 1):
+        ws[f"F{row}"].number_format = '0%'
     # Hide the CSAT_numeric column
     ws.column_dimensions['F'].hidden = True
-    
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(cell.value)
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width    
     # Save the workbook
     wb.save(output_path)
 
@@ -217,6 +234,7 @@ def process_and_export_to_excel(file_path, output_path):
 
 
     # Load the CSV file
+    # Load the CSV file
     data = pd.read_csv(file_path)
 
     # Remove leading/trailing spaces from column names
@@ -238,38 +256,47 @@ def process_and_export_to_excel(file_path, output_path):
     # Rename columns
     pivot_table.columns.name = None
     pivot_table = pivot_table.rename(columns={0: 'No_Answer', 1: 'Good', 2: 'Bad'})
-    
+
     # Drop the 'No_Answer' column
     pivot_table = pivot_table.drop(columns=['No_Answer'])
-    
+
+    # Handle cases where 'Good' or 'Bad' columns might be missing
+    if 'Good' not in pivot_table.columns:
+        pivot_table['Good'] = 0
+    if 'Bad' not in pivot_table.columns:
+        pivot_table['Bad'] = 0
+
     # Create the Surveys column
     pivot_table['Surveys'] = pivot_table['Good'] + pivot_table['Bad']
-    
+
     # Create the CSAT column
     pivot_table['CSAT'] = (pivot_table['Good'] / pivot_table['Surveys']).apply(lambda x: f"{x:.0%}" if not pd.isna(x) else None)
-    
+
     # Drop rows with NaN CSAT
     pivot_table = pivot_table.dropna(subset=['CSAT'])
-    
+
     # Convert CSAT to numeric for sorting and conditional formatting
     pivot_table['CSAT_numeric'] = pivot_table['CSAT'].str.rstrip('%').astype(float)
-    
+
     # Sort by CSAT
     pivot_table = pivot_table.sort_values(by='CSAT_numeric', ascending=False)
-    
+
     # Append the Grand Total row
     grand_total = pivot_table[['Good', 'Bad', 'Surveys']].sum()
     grand_total['Agent Name'] = 'Grand Total'
     grand_total['CSAT'] = f"{grand_total['Good'] / grand_total['Surveys']:.0%}"
-    grand_total['CSAT_numeric'] = float(grand_total['CSAT'].rstrip('%'))
+    grand_total['CSAT_numeric'] = float(grand_total['CSAT'].rstrip('%')) / 100
+    pivot_table['CSAT_numeric'] = pivot_table['CSAT'].str.rstrip('%').astype(float) / 100
+
+
     grand_total = pd.DataFrame(grand_total).transpose()
     pivot_table = pd.concat([pivot_table, grand_total], ignore_index=True)
-    
+
     # Export to Excel
     wb = Workbook()
     ws = wb.active
     ws.title = 'Pivot Table'
-    
+
     # Write DataFrame to Excel
     for r in dataframe_to_rows(pivot_table, index=False, header=True):
         ws.append(r)
@@ -295,21 +322,38 @@ def process_and_export_to_excel(file_path, output_path):
             cell.alignment = Alignment(horizontal='center')
 
 
-    # Adjust the width of the 'Agent Name' column to fit the longest name
-    max_length = max(len(str(cell.value)) for cell in ws['A'] if cell.value)
-    ws.column_dimensions['A'].width = max_length + 2  # Adding a little extra space for padding
     # Apply gradient color scale to the CSAT_numeric column
     first_data_row = 2
-    last_data_row = ws.max_row - 1  # Exclude the Grand Total row from conditional formatting
-
+    last_data_row = ws.max_row+1 # Exclude the Grand Total row from conditional formatting
     rule = ColorScaleRule(
-        start_type='num', start_value=0, start_color='FF0000',
-        end_type='num', end_value=100, end_color='00FF00'
+        start_type='min', start_value=0, start_color='f8696b',
+        mid_type='percentile', mid_value=50, mid_color='fede81',
+        end_type='max', end_value=100, end_color='63be7b'
     )
-    ws.conditional_formatting.add(f"F{first_data_row}:F{last_data_row}", rule)
+    ws.conditional_formatting.add(f"E{first_data_row}:F{last_data_row}", rule)
+
     
     # Hide the CSAT_numeric column
-    ws.column_dimensions['F'].hidden = True
+    #ws.column_dimensions['F'].hidden = True
+    ws.delete_cols(5)
+    for row in range(first_data_row, last_data_row + 2):
+           ws[f"E{row}"].number_format = '0%'
+    ws['E1'] = ' CSAT '
+
+    # Adjust column widths
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(cell.value)
+            except:
+                pass                        
+            adjusted_width = (max_length + 2)
+        if(column == 'A'):                    
+            adjusted_width = (max_length + 10)
+        ws.column_dimensions[column].width = adjusted_width        
     
     # Save the workbook
     wb.save(output_path)
@@ -388,8 +432,29 @@ def save_to_excel_break(df, filename):
     
     wb.save(filename)
 
+def prompt_delete_old_files():
+    choice = input("Do you want to delete old files? Choose (c)sv/(x)lsx/(a)ll/(n)o: ").strip().lower()
+    return choice
 
+def delete_files(file_extension):
+    files = glob.glob(f'*.{file_extension}')
+    for file in files:
+        os.remove(file)
+    print(f"All old .{file_extension} files have been deleted.")
 def main():
+    choice = prompt_delete_old_files()
+    if choice == 'c':
+        delete_files('csv')
+    elif choice == 'x':
+        delete_files('xlsx')
+    elif choice == 'a':
+        delete_files('csv')
+        delete_files('xlsx')
+    elif choice == 'n':
+        print("No files were deleted.")
+    else:
+        print("Invalid choice. No files were deleted.")
+    print("Welcome to Ghassan's tool for cool TCs and RTMs")
     while True:
         print("===========[[ Welcome to Ghassan's tool for cool TCs and RTMs ]]===========")
         print(
@@ -400,6 +465,7 @@ def main():
 4) Get help
 5) Exit
 6) Generate Break Schedule
+7) Delete old files
 
 More tools to be announced soon lw mamshetsh
             ''')
@@ -469,6 +535,17 @@ More tools to be announced soon lw mamshetsh
             schedule_df = generate_break_schedule(agent_names, start_time, break_schema)
             save_to_excel_break(schedule_df, filename)
             print(f"Break schedule saved to {filename}")
+        elif choice == '7':
+            choice = prompt_delete_old_files()
+            if choice == 'c':
+                delete_files('csv')
+            elif choice == 'x':
+                delete_files('xlsx')
+            elif choice == 'a':
+                delete_files('csv')
+                delete_files('xlsx')
+            elif choice == 'n':
+                print("No files were deleted.")
         else:
             print("Invalid choice. Please enter a valid number.")
         
