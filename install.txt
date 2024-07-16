@@ -1,0 +1,1 @@
+python -m PyInstaller -i smile.ico --noconsole --windowed --splash template.jpg --onefile GUI.py
