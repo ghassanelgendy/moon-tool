@@ -7,10 +7,6 @@ from datetime import datetime, timedelta  # Added for filename timestamp
 from openpyxl.utils import get_column_letter
 import glob
 import os
-if (getattr(sys, 'frozen', False)): # if running in a PyInstaller bundle
-    import pyi_splash
-# Centering function
-
 
 def adjust_column_width(ws, col):
     max_length = 0
@@ -482,7 +478,7 @@ More tools to be announced soon lw mamshetsh
             output_file = 'Prod elsa3a ' + str(hour) + ' yabasha.xlsx'
             automate_process(csv_file, hour, output_file)
             print("Done! The output file has been saved as:", output_file)
-
+            os.startfile(output_file)
         elif choice == '2':
             csv_file = glob.glob('L2*.csv')[0]
             day = int(input("Enter the day you want to filter by (1-31): "))
@@ -492,12 +488,15 @@ More tools to be announced soon lw mamshetsh
             pivot_table = create_pivot_table(filtered_df)
             save_to_excel(filtered_df, pivot_table, output_file)
             print("Done! The output file has been saved as:", output_file)
+            os.startfile(output_file)
 
         elif choice == '3':
 # Usage to open a file starting with "IVR" in the same directory
             ivr_file = glob.glob('IVR*.csv')[0]  # Assuming there's only one file starting with "IVR" in the directory
             process_and_export_to_excel(ivr_file, output_filename)
             print("Done! The output file has been saved as:", output_filename)
+            os.startfile(output_filename)
+
 
         elif choice == '4':
             print("For productivity, please make sure the file name is 'ghassan' and the hour is set to the hour you want to start from,"
